@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MarketStall Inventory Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f6fa;
+    }
+    header {
+      background: #2b6cb0;
+      padding: 15px;
+      color: white;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    nav {
+      display: flex;
+      background: #2c5282;
+    }
+    nav button {
+      flex: 1;
+      background: #2c5282;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    nav button:hover,
+    nav button.active {
+      background: #2b6cb0;
+    }
+    section {
+      padding: 20px;
+    }
+    h2 {
+      margin-top: 0;
+    }
+
+    /* 表格基础样式 */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #c5c5c5;
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background: #edf2f7;
+    }
+    tr.low {
+      background: #ffe0e0;
+      color: #b30000;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #4a5568;
+      background: #edf2f7;
+    }
+    button.primary {
+      background: #2b6cb0;
+      color: white;
+      border-color: #2b6cb0;
+    }
+
+    input, select {
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e0;
+      font-size: 14px;
+    }
+
+    /* 弹窗 */
+    #modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    #modal-box {
+      background: white;
+      padding: 20px;
+      width: 320px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    /* 卡片 */
+    .card-row {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 12px 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      flex: 1;
+      min-width: 180px;
+    }
+    .card-title {
+      font-size: 13px;
+      color: #4a5568;
+    }
+    .card-value {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+
+    /* 报表图表区域 */
+    .chart-container {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      height: 340px;
+    }
+
+    /* 手机界面模拟 */
+    .mobile-box {
+      border: 2px solid #4a5568;
+      padding: 15px;
+      background: white;
+      width: 330px;
+      margin: 0 auto;
+      border-radius: 15px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    }
+    .mobile-header {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    /* 聊天区域 */
+    #chatArea {
+      width: 100%;
+      background: white;
+      border: 1px solid #cbd5e0;
+      height: 230px;
+      overflow-y: auto;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .chat-msg {
+      background: #bee3f8;
+      padding: 8px;
+      margin-bottom: 6px;
+      border-radius: 5px;
+      max-width: 60%;
+    }
+    .chat-msg.stall {
+      background: #c6f6d5;
+    }
+    .chat-meta {
+      font-size: 11px;
+      color: #4a5568;
+      margin-bottom: 2px;
+    }
+
+    @media (max-width: 768px) {
+      nav { flex-wrap: wrap; }
+      nav button { flex: 50%; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>MarketStall Inventory Manager</header>
+
+  <!-- 导航栏 -->
+  <nav>
+    <button :class="{active: page==='inventory'}" @click="page='inventory'">Inventory</button>
+    <button :class="{active: page==='report'}"    @click="page='report'">Sales Report</button>
+    <button :class="{active: page==='transfer'}"  @click="page='transfer'">Stock Transfer</button>
+    <button :class="{active: page==='mobile'}"    @click="page='mobile'">Customer App</button>
+    <button :class="{active: page==='chat'}"      @click="page='chat'">Chat</button>
+  </nav>
+
+  <!-- ================== Inventory 页面 ================== -->
+  <section v-if="page==='inventory'">
+    <h2>Stall Inventory</h2>
+    <p style="margin:4px 0 10px;color:#4a5568;font-size:14px;">
+      This page allows stall owners to view real-time stock levels, identify low-stock items, and perform manual adjustments.
+    </p>
+
+    <div class="card-row">
+      <div class="card">
+        <div class="card-title">Total Products</div>
+        <div class="card-value">{{ inventory.length }}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Low-stock Items</div>
+        <div class="card-value">{{ lowStockCount }}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Units in Stock</div>
+        <div class="card-value">{{ totalStock }}</div>
+      </div>
+    </div>
+
+    <table>
+      <tr>
+        <th>Product</th>
+        <th>Category</th>
+        <th>Stock</th>
+        <th>Min Level</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+      <tr v-for="item in inventory"
+          :key="item.name"
+          :class="{low: item.stock < item.min}">
+        <td>{{ item.name }}</td>
+        <td>{{ item.category }}</td>
+        <td>{{ item.stock }}</td>
+        <td>{{ item.min }}</td>
+        <td>
+          <span v-if="item.stock < item.min">Low</span>
+          <span v-else>OK</span>
+        </td>
+        <td>
+          <button class="primary" @click="openRestock(item)">Adjust Stock</button>
+        </td>
+      </tr>
+    </table>
+    <p style="margin-top:8px;font-size:12px;color:#555;">
+      Tip: enter a positive number to increase stock, or a negative number to reduce stock (e.g. -3).
+    </p>
+  </section>
+
+  <!-- ================== Sales Report 页面 ================== -->
+  <section v-if="page==='report'">
+    <h2>Sales Report</h2>
+    <p style="margin:4px 0 10px;color:#4a5568;font-size:14px;">
+      This report summarizes stall performance over time and helps stall owners understand sales trends.
+    </p>
+
+    <div class="card-row">
+      <div class="card">
+        <div class="card-title">Total Revenue ({{ reportRangeLabel }})</div>
+        <div class="card-value">${{ currentReport.revenueTotal }}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Profit ({{ reportRangeLabel }})</div>
+        <div class="card-value">${{ currentReport.profitTotal }}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Best-selling Item</div>
+        <div class="card-value">{{ currentReport.bestSeller }}</div>
+      </div>
+    </div>
+
+    <label style="font-size:14px;color:#4a5568;">View range: </label>
+    <select v-model="reportRange">
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+
+    <div class="chart-container">
+      <canvas id="salesChart"></canvas>
+    </div>
+  </section>
+
+  <!-- ================== Stock Transfer 页面 ================== -->
+  <section v-if="page==='transfer'">
+    <h2>Request Stock From Warehouse</h2>
+    <p style="margin:4px 0 10px;color:#4a5568;font-size:14px;">
+      Stall owners can request additional stock from the warehouse. All requests are logged for the administrator.
+    </p>
+
+    <div style="margin-bottom:10px;">
+      <select v-model="transferItem">
+        <option v-for="i in inventory" :key="i.name" :value="i.name">{{ i.name }}</option>
+      </select>
+      <input type="number" v-model.number="transferQty" placeholder="Quantity" style="margin-left:6px;width:120px;">
+      <button class="primary" style="margin-left:6px;" @click="sendTransfer">Send Request</button>
+    </div>
+
+    <h3 style="margin-top:20px;">Transfer History (Session)</h3>
+    <table v-if="transferHistory.length > 0">
+      <tr>
+        <th>Time</th>
+        <th>Product</th>
+        <th>Quantity</th>
+        <th>Status</th>
+      </tr>
+      <tr v-for="t in transferHistory" :key="t.id">
+        <td>{{ t.time }}</td>
+        <td>{{ t.product }}</td>
+        <td>{{ t.qty }}</td>
+        <td>{{ t.status }}</td>
+      </tr>
+    </table>
+    <p v-else style="font-size:13px;color:#4a5568;">No transfer requests have been created in this session.</p>
+  </section>
+
+  <!-- ================== Customer App 页面 ================== -->
+  <section v-if="page==='mobile'">
+    <div class="mobile-box">
+      <div class="mobile-header">Customer – View Stock & Promotions</div>
+
+      <div style="margin-bottom:10px;">
+        <strong>Live Stock</strong>
+        <p v-for="i in inventory" :key="i.name" style="margin:4px 0;font-size:14px;">
+          {{ i.name }}: <b>{{ i.stock }}</b> left
+          <span v-if="i.stock < i.min" style="color:#e53e3e;"> (Low)</span>
+        </p>
+      </div>
+
+      <div style="margin-top:10px;">
+        <strong>Today's Promotion</strong>
+        <div style="background:#fff3cd;padding:8px;margin-top:4px;">
+          {{ promotionText }}
+        </div>
+      </div>
+
+      <div style="margin-top:12px;font-size:13px;">
+        <label>
+          <input type="checkbox" v-model="promotionSubscribed">
+          Receive promotion notifications
+        </label>
+        <p v-if="promotionSubscribed" style="color:#38a169;margin-top:4px;">
+          You are subscribed to promotion alerts.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== Chat 页面 ================== -->
+  <section v-if="page==='chat'">
+    <h2>Customer – Stall Chat</h2>
+    <p style="margin:4px 0 10px;color:#4a5568;font-size:14px;">
+      This simple chat interface simulates communication between a customer and a stall owner.
+    </p>
+
+    <div id="chatArea">
+      <div v-for="m in messages" :key="m.id" class="chat-msg" :class="{stall: m.from==='Stall'}">
+        <div class="chat-meta">{{ m.from }} • {{ m.time }}</div>
+        <div>{{ m.text }}</div>
+      </div>
+    </div>
+
+    <input
+      v-model="chatInput"
+      type="text"
+      placeholder="Type message"
+      style="width:80%;padding:6px;border:1px solid #cbd5e0;border-radius:4px;">
+    <button class="primary" style="margin-left:6px;" @click="sendChat">Send</button>
+  </section>
+
+  <!-- ============== 补货弹窗 ============== -->
+  <div id="modal" :style="{display: showModal ? 'flex' : 'none'}">
+    <div id="modal-box">
+      <h3>Adjust Stock</h3>
+      <p v-if="selectedItem">
+        Product: <strong>{{ selectedItem.name }}</strong><br>
+        Current stock: <strong>{{ selectedItem.stock }}</strong>
+      </p>
+      <p style="font-size:13px;color:#4a5568;">
+        Enter positive number to increase stock, negative number to reduce.
+      </p>
+      <input type="number" v-model.number="restockQty" placeholder="e.g. 5 or -3" style="width:100%;margin-bottom:10px;">
+      <div style="text-align:right;">
+        <button @click="showModal=false">Cancel</button>
+        <button class="primary" style="margin-left:6px;" @click="confirmRestock">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, nextTick } = Vue;
+
+createApp({
+  data() {
+    return {
+      page: 'inventory',
+
+      // 库存数据
+      inventory: [
+        { name: 'Tomatoes', category: 'Vegetable', stock: 3,  min: 5 },
+        { name: 'Cabbage',  category: 'Vegetable', stock: 12, min: 5 },
+        { name: 'Eggs',     category: 'Dairy',     stock: 25, min: 10 },
+      ],
+
+      // 补货弹窗
+      showModal: false,
+      selectedItem: null,
+      restockQty: 0,
+
+      // 调货
+      transferItem: 'Tomatoes',
+      transferQty: 0,
+      transferHistory: [],
+
+      // 报表
+      reportRange: 'weekly',
+      chartInstance: null,
+      reportData: {
+        weekly: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+          revenue: [120, 90, 150, 200, 180],
+          profit:  [60,  40,  70,  100,  85],
+          revenueTotal: 120+90+150+200+180,
+          profitTotal:  60+40+70+100+85,
+          bestSeller: 'Tomatoes'
+        },
+        monthly: {
+          labels: ['Week 1','Week 2','Week 3','Week 4'],
+          revenue: [500, 650, 700, 800],
+          profit:  [260, 320, 350, 400],
+          revenueTotal: 500+650+700+800,
+          profitTotal:  260+320+350+400,
+          bestSeller: 'Eggs'
+        }
+      },
+
+      // Customer App
+      promotionText: '10% off for all vegetables',
+      promotionSubscribed: false,
+
+      // Chat
+      messages: [],
+      chatInput: ''
+    };
+  },
+
+  computed: {
+    lowStockCount() {
+      return this.inventory.filter(i => i.stock < i.min).length;
+    },
+    totalStock() {
+      return this.inventory.reduce((sum, i) => sum + i.stock, 0);
+    },
+    currentReport() {
+      return this.reportData[this.reportRange];
+    },
+    reportRangeLabel() {
+      return this.reportRange === 'weekly' ? 'This Week' : 'This Month';
+    }
+  },
+
+  watch: {
+    // 当切换到报表页面或者范围改变时，重画图表
+    page(newVal) {
+      if (newVal === 'report') {
+        this.renderChartDelayed();
+      }
+    },
+    reportRange() {
+      if (this.page === 'report') {
+        this.renderChartDelayed();
+      }
+    }
+  },
+
+  methods: {
+    openRestock(item) {
+      this.selectedItem = item;
+      this.restockQty = 0;
+      this.showModal = true;
+    },
+
+    confirmRestock() {
+      if (!this.selectedItem) return;
+      const qty = Number(this.restockQty);
+      if (!qty || isNaN(qty)) {
+        alert('Please enter a non-zero number.');
+        return;
+      }
+      this.selectedItem.stock = Math.max(0, this.selectedItem.stock + qty);
+      if (this.selectedItem.stock < this.selectedItem.min) {
+        alert(`Warning: ${this.selectedItem.name} is still below minimum stock level.`);
+      }
+      this.showModal = false;
+      this.selectedItem = null;
+      this.restockQty = 0;
+    },
+
+    sendTransfer() {
+      if (!this.transferQty || this.transferQty <= 0) {
+        alert('Please enter a positive quantity.');
+        return;
+      }
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      this.transferHistory.push({
+        id: now.getTime(),
+        time: timeStr,
+        product: this.transferItem,
+        qty: this.transferQty,
+        status: 'Pending Approval'
+      });
+      alert(`Transfer request sent:\n${this.transferItem} × ${this.transferQty}`);
+      this.transferQty = 0;
+    },
+
+    sendChat() {
+      const text = this.chatInput.trim();
+      if (!text) return;
+      const now = new Date().toLocaleTimeString();
+      this.messages.push({ id: Date.now(), from: 'Customer', text, time: now });
+      this.chatInput = '';
+
+      // 模拟摊主自动回复
+      setTimeout(() => {
+        const reply = {
+          id: Date.now()+1,
+          from: 'Stall',
+          text: 'Thanks for your message, we will get back to you soon.',
+          time: new Date().toLocaleTimeString()
+        };
+        this.messages.push(reply);
+        const chatArea = document.getElementById('chatArea');
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }, 700);
+
+      const chatArea = document.getElementById('chatArea');
+      chatArea.scrollTop = chatArea.scrollHeight;
+    },
+
+    renderChartDelayed() {
+      nextTick(() => {
+        this.drawChart();
+      });
+    },
+
+    drawChart() {
+      const canvas = document.getElementById('salesChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      if (this.chartInstance) {
+        this.chartInstance.destroy();
+      }
+
+      const data = this.currentReport;
+
+      this.chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: 'Revenue',
+              data: data.revenue,
+              borderColor: '#2b6cb0',
+              backgroundColor: 'rgba(43,108,176,0.15)',
+              borderWidth: 2,
+              fill: true
+            },
+            {
+              label: 'Profit',
+              data: data.profit,
+              borderColor: '#38a169',
+              backgroundColor: 'rgba(56,161,105,0.15)',
+              borderWidth: 2,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+  },
+
+  mounted() {
+    // 默认如果一开始就在报表页，确保图表会画
+    if (this.page === 'report') {
+      this.renderChartDelayed();
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
